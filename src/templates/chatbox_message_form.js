@@ -12,7 +12,7 @@ export default (o) => html`
     <form class="sendXMPPMessage">
         ${ (o.show_toolbar || o.show_send_button) ? html`
             <div class="chat-toolbar--container">
-                ${ o.show_toolbar ? html`<ul class="chat-toolbar no-text-select"></ul>` : '' }
+                ${ o.show_toolbar ? html`<span class="chat-toolbar no-text-select"></span>` : '' }
                 ${ o.show_send_button ? html`<button type="submit" class="btn send-button fa fa-paper-plane" title="${ i18n_send_message }"></button>` : '' }
             </div>` : ''
         }

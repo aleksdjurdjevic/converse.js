@@ -6,7 +6,6 @@
 import "./components/emoji-picker.js";
 import "@converse/headless/converse-emoji";
 import bootstrap from "bootstrap.native";
-import tpl_emoji_button from "templates/emoji_button.html";
 import { View } from "@converse/skeletor/src/view";
 import { __ } from '@converse/headless/i18n';
 import { _converse, api, converse } from '@converse/headless/converse-core';
@@ -146,10 +145,17 @@ converse.plugins.add('converse-emoji-views', {
 
         api.listen.on('chatBoxClosed', view => view.emoji_picker_view && view.emoji_picker_view.remove());
 
-        api.listen.on('renderToolbar', view => {
+        api.listen.on('getToolbarButtons', (chatbox, buttons) => {
             if (api.settings.get('visible_toolbar_buttons').emoji) {
-                const html = tpl_emoji_button({'tooltip_insert_smiley': __('Insert emojis')});
-                view.el.querySelector('.chat-toolbar').insertAdjacentHTML('afterBegin', html);
+                buttons.push(html`
+                    <li class="toggle-toolbar-menu toggle-smiley__container">
+                        <a class="toggle-smiley far fa-smile"
+                        title="${__('Insert emojis')}"
+                        data-toggle="dropdown"
+                        aria-haspopup="true"
+                        aria-expanded="false"></a>
+                    </li>`);
+                return buttons;
             }
         });
 
