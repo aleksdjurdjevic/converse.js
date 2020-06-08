@@ -1,10 +1,13 @@
 import DOMNavigator from "../dom-navigator";
 import sizzle from 'sizzle';
+import { BaseDropdown } from "./dropdown.js";
 import { CustomElement } from './element.js';
-import { _converse, converse } from "@converse/headless/converse-core";
+import { __ } from '@converse/headless/i18n';
+import { _converse, api, converse } from "@converse/headless/converse-core";
 import { debounce, find } from "lodash-es";
 import { html } from "lit-element";
 import { tpl_all_emojis, tpl_emoji_picker, tpl_search_results } from "../templates/emoji_picker.js";
+import { until } from 'lit-html/directives/until.js';
 
 const u = converse.env.utils;
 
@@ -81,11 +84,9 @@ export class EmojiPickerContent extends CustomElement {
         ev.preventDefault();
         ev.stopPropagation();
         const target = ev.target.nodeName === 'IMG' ? ev.target.parentElement : ev.target;
-        const replace = this.model.get('autocompleting');
-        const position = this.model.get('position');
-        this.model.set({'autocompleting': null, 'position': null, 'query': ''});
-        this.chatview.insertIntoTextArea(target.getAttribute('data-emoji'), replace, false, position);
-        this.chatview.emoji_dropdown.toggle();
+        const value = target.getAttribute('data-emoji');
+        this.chatview.onEmojiReceivedFromPicker(value);
+        this.model.set({'query': ''});
     }
 
     shouldBeHidden (shortname) {
@@ -114,11 +115,16 @@ export class EmojiPicker extends CustomElement {
     static get properties () {
         return {
             'chatview': { type: Object },
-            'current_category': { type: String },
-            'current_skintone': { type: String },
+            'current_category': { type: String, 'reflect': true },
+            'current_skintone': { type: String, 'reflect': true },
             'model': { type: Object },
-            'query': { type: String },
+            'query': { type: String, 'reflet': true },
         }
+    }
+
+    firstUpdated () {
+        this.listenTo(this.model, 'change', o => this.onModelChanged(o.changed));
+        this.initArrowNavigation();
     }
 
     constructor () {
@@ -147,13 +153,15 @@ export class EmojiPicker extends CustomElement {
         });
     }
 
-    firstUpdated () {
-        this.initArrowNavigation();
-    }
-
     updated (changed) {
         changed.has('query') && this.updateSearchResults();
         changed.has('current_category') && this.setScrollPosition();
+    }
+
+    onModelChanged (changed) {
+        if ('current_category' in changed) this.current_category = changed.current_category;
+        if ('current_skintone' in changed) this.current_skintone = changed.current_skintone;
+        if ('query' in changed) this.query = changed.query;
     }
 
     setScrollPosition () {
@@ -217,15 +225,8 @@ export class EmojiPicker extends CustomElement {
     }
 
     insertIntoTextArea (value) {
-        const replace = this.model.get('autocompleting');
-        const position = this.model.get('position');
-        this.model.set({'autocompleting': null, 'position': null});
-        this.chatview.insertIntoTextArea(value, replace, false, position);
-        if (this.chatview.emoji_dropdown) {
-            this.chatview.emoji_dropdown.toggle();
-        }
+        this.chatview.onEmojiReceivedFromPicker(value);
         this.model.set({'query': ''});
-        this.disableArrowNavigation();
     }
 
     chooseSkinTone (ev) {
@@ -343,5 +344,70 @@ export class EmojiPicker extends CustomElement {
 }
 
 
+export class EmojiDropdown extends BaseDropdown {
+
+    static get properties() {
+        return {
+            chatview: { type: Object }
+        };
+    }
+
+    initModel () {
+        if (!this.init_promise) {
+            this.init_promise = (async () => {
+                await api.emojis.initialize()
+                const id = `converse.emoji-${_converse.bare_jid}-${this.chatview.model.get('jid')}`;
+                this.model = new _converse.EmojiPicker({'id': id});
+                this.model.browserStorage = _converse.createStore(id);
+                await new Promise(resolve => this.model.fetch({'success': resolve, 'error': resolve}));
+            })();
+        }
+        return this.init_promise;
+    }
+
+    render() {
+        return html`
+            <div class="dropup">
+                <button class="toggle-emojis"
+                        title="${__('Insert emojis')}"
+                        data-toggle="dropdown"
+                        aria-haspopup="true"
+                        aria-expanded="false">
+                    <fa-icon class="fa fa-smile "
+                             path-prefix="${api.settings.get('assets_path')}"
+                             size="1em"></fa-icon>
+                </button>
+                <div class="dropdown-menu">
+                    ${until(this.initModel().then(() => html`
+                        <converse-emoji-picker
+                                .chatview=${this.chatview}
+                                .model=${this.model}
+                                current_category="${this.model.get('current_category') || ''}"
+                                current_skintone="${this.model.get('current_skintone') || ''}"
+                                query="${this.model.get('query') || ''}"
+                        ></converse-emoji-picker>`), '')}
+                </div>
+            </div>`;
+    }
+
+    toggleMenu (ev) {
+        ev.stopPropagation();
+        ev.preventDefault();
+        if (u.hasClass('show', this.menu)) {
+            if (u.ancestor(ev.target, '.toggle-emojis')) {
+                this.hideMenu();
+            }
+        } else {
+            this.showMenu();
+        }
+    }
+
+    async showMenu () {
+        await this.init_promise;
+        super.showMenu();
+    }
+}
+
+window.customElements.define('converse-emoji-dropdown', EmojiDropdown);
 window.customElements.define('converse-emoji-picker', EmojiPicker);
 window.customElements.define('converse-emoji-picker-content', EmojiPickerContent);

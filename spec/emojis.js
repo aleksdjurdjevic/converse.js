@@ -20,15 +20,13 @@ describe("Emojis", function () {
             await mock.openControlBox(_converse);
             await mock.openChatBoxFor(_converse, contact_jid);
             const view = _converse.chatboxviews.get(contact_jid);
-            const toolbar = await u.waitUntil(() => view.el.querySelector('ul.chat-toolbar'));
-            expect(toolbar.querySelectorAll('li.toggle-smiley__container').length).toBe(1);
-            toolbar.querySelector('a.toggle-smiley').click();
+            const toolbar = await u.waitUntil(() => view.el.querySelector('converse-chat-toolbar'));
+            toolbar.querySelector('.toggle-emojis').click();
             await u.waitUntil(() => u.isVisible(view.el.querySelector('.emoji-picker__lists')), 1000);
-            const picker = await u.waitUntil(() => view.el.querySelector('.emoji-picker__container'), 1000);
-            const item = await u.waitUntil(() => picker.querySelector('.emoji-picker li.insert-emoji a'), 1000);
+            const item = view.el.querySelector('.emoji-picker li.insert-emoji a');
             item.click()
             expect(view.el.querySelector('textarea.chat-textarea').value).toBe(':smiley: ');
-            toolbar.querySelector('a.toggle-smiley').click(); // Close the panel again
+            toolbar.querySelector('.toggle-emojis').click(); // Close the panel again
             done();
         }));
 
@@ -53,8 +51,7 @@ describe("Emojis", function () {
                 'key': 'Tab'
             }
             view.onKeyDown(tab_event);
-            await u.waitUntil(() => u.isVisible(view.el.querySelector('.emoji-picker__lists')));
-            const picker = await u.waitUntil(() => view.el.querySelector('.emoji-picker__container'));
+            const picker = view.el.querySelector('converse-emoji-picker');
             const input = picker.querySelector('.emoji-search');
             expect(input.value).toBe(':gri');
             await u.waitUntil(() =>  sizzle('.emojis-lists__container--search .insert-emoji', picker).length === 3, 1000);
@@ -268,7 +265,7 @@ describe("Emojis", function () {
 
             const toolbar = await u.waitUntil(() => view.el.querySelector('ul.chat-toolbar'));
             expect(toolbar.querySelectorAll('li.toggle-smiley__container').length).toBe(1);
-            toolbar.querySelector('a.toggle-smiley').click();
+            toolbar.querySelector('.toggle-emojis').click();
             await u.waitUntil(() => u.isVisible(view.el.querySelector('.emoji-picker__lists')), 1000);
             const picker = await u.waitUntil(() => view.el.querySelector('.emoji-picker__container'), 1000);
             const custom_category = picker.querySelector('.pick-category[data-category="custom"]');

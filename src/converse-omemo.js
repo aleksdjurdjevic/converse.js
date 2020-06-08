@@ -7,12 +7,12 @@
 
 import "converse-profile";
 import log from "@converse/headless/log";
-import tpl_toolbar_omemo from "templates/toolbar_omemo.html";
 import { Collection } from "@converse/skeletor/src/collection";
 import { Model } from '@converse/skeletor/src/model.js';
 import { __ } from '@converse/headless/i18n';
 import { _converse, api, converse } from "@converse/headless/converse-core";
 import { concat, debounce, difference, invokeMap, range, omit } from "lodash-es";
+import { html } from 'lit-html';
 
 const { Strophe, sizzle, $build, $iq, $msg } = converse.env;
 const u = converse.env.utils;
@@ -183,30 +183,6 @@ converse.plugins.add('converse-omemo', {
                     return this.__super__.sendMessage.apply(this, arguments);
                 }
             }
-        },
-
-        ChatBoxView:  {
-            events: {
-                'click .toggle-omemo': 'toggleOMEMO'
-            },
-
-            initialize () {
-                this.__super__.initialize.apply(this, arguments);
-                this.listenTo(this.model, 'change:omemo_active', this.renderOMEMOToolbarButton);
-                this.listenTo(this.model, 'change:omemo_supported', this.onOMEMOSupportedDetermined);
-            }
-        },
-
-        ChatRoomView: {
-            events: {
-                'click .toggle-omemo': 'toggleOMEMO'
-            },
-
-            initialize () {
-                this.__super__.initialize.apply(this, arguments);
-                this.listenTo(this.model, 'change:omemo_active', this.renderOMEMOToolbarButton);
-                this.listenTo(this.model, 'change:omemo_supported', this.onOMEMOSupportedDetermined);
-            }
         }
     },
 
@@ -375,59 +351,6 @@ converse.plugins.add('converse-omemo', {
             }
         }
         Object.assign(_converse.ChatBox.prototype, OMEMOEnabledChatBox);
-
-
-        const OMEMOEnabledChatView = {
-
-            onOMEMOSupportedDetermined () {
-                if (!this.model.get('omemo_supported') && this.model.get('omemo_active')) {
-                    this.model.set('omemo_active', false); // Will cause render
-                } else {
-                    this.renderOMEMOToolbarButton();
-                }
-            },
-
-            renderOMEMOToolbarButton () {
-                if (this.model.get('type') !== _converse.CHATROOMS_TYPE ||
-                        this.model.features.get('membersonly') &&
-                        this.model.features.get('nonanonymous')) {
-
-                    const icon = this.el.querySelector('.toggle-omemo');
-                    const html = tpl_toolbar_omemo(Object.assign(this.model.toJSON(), {'__': __}));
-                    if (icon) {
-                        icon.outerHTML = html;
-                    } else {
-                        this.el.querySelector('.chat-toolbar').insertAdjacentHTML('beforeend', html);
-                    }
-                } else {
-                    const icon = this.el.querySelector('.toggle-omemo');
-                    if (icon) {
-                        icon.parentElement.removeChild(icon);
-                    }
-                }
-            },
-
-            toggleOMEMO (ev) {
-                if (!this.model.get('omemo_supported')) {
-                    let messages;
-                    if (this.model.get('type') === _converse.CHATROOMS_TYPE) {
-                        messages = [__(
-                            'Cannot use end-to-end encryption in this groupchat, '+
-                            'either the groupchat has some anonymity or not all participants support OMEMO.'
-                        )];
-                    } else {
-                        messages = [__(
-                            "Cannot use end-to-end encryption because %1$s uses a client that doesn't support OMEMO.",
-                            this.model.contact.getDisplayName()
-                        )];
-                    }
-                    return api.alert('error', __('Error'), messages);
-                }
-                ev.preventDefault();
-                this.model.save({'omemo_active': !this.model.get('omemo_active')});
-            }
-        }
-        Object.assign(_converse.ChatBoxView.prototype, OMEMOEnabledChatView);
 
 
         async function generateFingerprint (device) {
@@ -1176,6 +1099,69 @@ converse.plugins.add('converse-omemo', {
             }
         }
 
+
+        function toggleOMEMO (ev) {
+            ev.stopPropagation();
+            ev.preventDefault();
+            const toolbar_el = u.ancestor(ev.target, 'converse-chat-toolbar');
+            if (!toolbar_el.model.get('omemo_supported')) {
+                let messages;
+                if (toolbar_el.model.get('type') === _converse.CHATROOMS_TYPE) {
+                    messages = [__(
+                        'Cannot use end-to-end encryption in toolbar_el groupchat, '+
+                        'either the groupchat has some anonymity or not all participants support OMEMO.'
+                    )];
+                } else {
+                    messages = [__(
+                        "Cannot use end-to-end encryption because %1$s uses a client that doesn't support OMEMO.",
+                        toolbar_el.model.contact.getDisplayName()
+                    )];
+                }
+                return api.alert('error', __('Error'), messages);
+            }
+            toolbar_el.model.save({'omemo_active': !toolbar_el.model.get('omemo_active')});
+        }
+
+
+        function getOMEMOToolbarButton (toolbar_el, buttons) {
+            const is_muc = toolbar_el.model.get('type') === _converse.CHATROOMS_TYPE;
+            const muc_supported = (
+                is_muc &&
+                toolbar_el.model.features.get('membersonly') &&
+                toolbar_el.model.features.get('nonanonymous')
+            );
+            const omemo_supported = toolbar_el.model.get('omemo_supported');
+
+            const i18n_plaintext = __('Messages are being sent in plaintext');
+            const i18n_encrypted = __('Messages are sent encrypted');
+            let title;
+            if (muc_supported) {
+                title = toolbar_el.model.get('omemo_active') ? i18n_encrypted : i18n_plaintext;
+            } else {
+                title = __('This groupchat needs to be members-only and non-anonymous in '+
+                           'order to support OMEMO encrypted messages');
+            }
+            buttons.push(html`
+                <button class="toggle-omemo"
+                        title="${title}"
+                        ?disabled=${!omemo_supported || is_muc && !muc_supported}
+                        @click=${toggleOMEMO}>
+                <fa-icon class="fa ${toolbar_el.model.get('omemo_active') ? `fa-lock` : `fa-unlock`}"
+                         path-prefix="${api.settings.get('assets_path')}" size="1em"
+                ></fa-icon>
+                </button>`
+            );
+            return buttons;
+        }
+
+        function onOMEMOSupportedDetermined (view) {
+            // FIXME: make sure that the toolbar re-renders
+            if (!view.model.get('omemo_supported') && view.model.get('omemo_active')) {
+                view.model.set('omemo_active', false); // Will cause render
+            }
+        }
+
+
         /******************** Event Handlers ********************/
 
         api.waitUntil('chatBoxesInitialized').then(() =>
@@ -1188,8 +1174,23 @@ converse.plugins.add('converse-omemo', {
             })
         );
 
+        const onChatInitialized = view => {
+            view.listenTo(view.model, 'change:omemo_supported', () => {
+                if (!view.model.get('omemo_supported') && view.model.get('omemo_active')) {
+                    view.model.set('omemo_active', false);
+                }
+            });
+            view.listenTo(view.model, 'change:omemo_active', () => {
+                view.el.querySelector('converse-chat-toolbar').requestUpdate();
+            });
+        }
+
+        api.listen.on('chatBoxViewInitialized', onChatInitialized);
+        api.listen.on('chatRoomViewInitialized', onChatInitialized);
+
         api.listen.on('connected', registerPEPPushHandler);
-        api.listen.on('renderToolbar', view => view.renderOMEMOToolbarButton());
+        api.listen.on('getToolbarButtons', getOMEMOToolbarButton);
+
         api.listen.on('statusInitialized', initOMEMO);
         api.listen.on('addClientFeatures',
             () => api.disco.own.features.add(`${Strophe.NS.OMEMO_DEVICELIST}+notify`));
