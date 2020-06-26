@@ -1075,10 +1075,10 @@ converse.plugins.add('converse-muc-views', {
 
             getToolbarOptions () {
                 return Object.assign(
-                    _converse.ChatBoxView.prototype.getToolbarOptions.apply(this, arguments),
-                    {
-                      'label_hide_occupants': __('Hide the list of participants'),
-                      'show_occupants_toggle': _converse.visible_toolbar_buttons.toggle_occupants
+                    _converse.ChatBoxView.prototype.getToolbarOptions.apply(this, arguments), {
+                        'is_groupchat': true,
+                        'label_hide_occupants': __('Hide the list of participants'),
+                        'show_occupants_toggle': _converse.visible_toolbar_buttons.toggle_occupants
                     }
                 );
             },

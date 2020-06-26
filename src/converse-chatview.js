@@ -51,6 +51,7 @@ converse.plugins.add('converse-chatview', {
          */
         api.settings.extend({
             'auto_focus': true,
+            'debounced_content_rendering': true,
             'message_limit': 0,
             'muc_hats_from_vcard': false,
             'show_images_inline': true,
@@ -59,10 +60,11 @@ converse.plugins.add('converse-chatview', {
             'show_send_button': true,
             'show_toolbar': true,
             'time_format': 'HH:mm',
-            'debounced_content_rendering': true,
+            'use_system_emojis': true,
             'visible_toolbar_buttons': {
                 'call': false,
                 'clear': true,
+                'emoji': true,
                 'spoiler': true
             },
         });
@@ -235,7 +237,7 @@ converse.plugins.add('converse-chatview', {
                 }
             },
 
-            async render () {
+            render () {
                 const result = tpl_chatbox(
                     Object.assign(
                         this.model.toJSON(), {
@@ -245,12 +247,9 @@ converse.plugins.add('converse-chatview', {
                 );
                 render(result, this.el);
                 this.content = this.el.querySelector('.chat-content');
-
                 this.notifications = this.el.querySelector('.chat-content__notifications');
                 this.msgs_container = this.el.querySelector('.chat-content__messages');
                 this.help_container = this.el.querySelector('.chat-content__help');
-
-                await api.waitUntil('emojisInitialized');
                 this.renderChatContent();
                 this.renderMessageForm();
                 this.renderHeading();
@@ -330,8 +329,10 @@ converse.plugins.add('converse-chatview', {
                 if (!api.settings.get('show_toolbar')) {
                     return this;
                 }
-                const options = Object.assign(
-                    { 'model': this.model, 'chatview': this },
+                const options = Object.assign({
+                        'model': this.model,
+                        'chatview': this
+                    },
                     this.model.toJSON(),
                     this.getToolbarOptions()
                 );
@@ -482,6 +483,7 @@ converse.plugins.add('converse-chatview', {
                     'label_toggle_spoiler': label_toggle_spoiler,
                     'message_limit': api.settings.get('message_limit'),
                     'show_call_button': api.settings.get('visible_toolbar_buttons').call,
+                    'show_emoji_button': api.settings.get('visible_toolbar_buttons').emoji,
                     'show_spoiler_button': api.settings.get('visible_toolbar_buttons').spoiler,
                     'tooltip_start_call': __('Start a call')
                 }
@@ -734,6 +736,24 @@ converse.plugins.add('converse-chatview', {
                 this.updateCharCounter(ev.clipboardData.getData('text/plain'));
             },
 
+            autocompleteInPicker (input, value) {
+                const emoji_dropdown = this.el.querySelector('converse-emoji-dropdown');
+                const emoji_picker = this.el.querySelector('converse-emoji-picker');
+                if (emoji_picker && emoji_dropdown) {
+                    this.autocompleting = value;
+                    this.ac_position = input.selectionStart;
+                    emoji_picker.model.set({'query': value});
+                    emoji_dropdown.firstElementChild.click();
+                    return true;
+                }
+            },
+
+            onEmojiReceivedFromPicker (emoji) {
+                this.insertIntoTextArea(emoji, !!this.autocompleting, false, this.ac_position);
+                this.autocompleting = false;
+                this.ac_position = null;
+            },
+
             /**
              * Event handler for when a depressed key goes up
              * @private
@@ -755,7 +775,13 @@ converse.plugins.add('converse-chatview', {
                     return;
                 }
                 if (!ev.shiftKey && !ev.altKey && !ev.metaKey) {
-                    if (ev.keyCode === converse.keycodes.FORWARD_SLASH) {
+                    if (ev.keyCode === converse.keycodes.TAB) {
+                        const value = u.getCurrentWord(ev.target, null, /(:.*?:)/g);
+                        if (value.startsWith(':') && this.autocompleteInPicker(ev.target, value)) {
+                            ev.preventDefault();
+                            ev.stopPropagation();
+                        }
+                    } else if (ev.keyCode === converse.keycodes.FORWARD_SLASH) {
                         // Forward slash is used to run commands. Nothing to do here.
                         return;
                     } else if (ev.keyCode === converse.keycodes.ESCAPE) {

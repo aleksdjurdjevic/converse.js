@@ -223,9 +223,7 @@ describe("A spoiler message", function () {
             `</message>`
         );
 
-        const spoiler_el = stanza.querySelector('spoiler[xmlns="urn:xmpp:spoiler:0"]');
-        expect(spoiler_el === null).toBeFalsy();
-        expect(spoiler_el.textContent).toBe('This is the hint');
+        await u.waitUntil(() => stanza.querySelector('spoiler[xmlns="urn:xmpp:spoiler:0"]')?.textContent === 'This is the hint');
 
         const spoiler = 'This is the spoiler'
         const body_el = stanza.querySelector('body');

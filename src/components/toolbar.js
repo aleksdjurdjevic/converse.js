@@ -1,3 +1,4 @@
+import "./emoji-picker.js";
 import { CustomElement } from './element.js';
 import { __ } from '@converse/headless/i18n';
 import { _converse, api, converse } from "@converse/headless/converse-core";
@@ -18,13 +19,14 @@ export class ChatToolbar extends CustomElement {
     static get properties () {
         return {
             chatview: { type: Object }, // Used by getToolbarButtons hooks
-            model: { type: Object },
             hidden_occupants: { type: Boolean },
             is_groupchat: { type: Boolean },
             message_limit: { type: Number },
+            model: { type: Object },
             show_call_button: { type: Boolean },
             show_occupants_toggle: { type: Boolean },
             show_spoiler_button: { type: Boolean },
+            show_emoji_button: { type: Boolean },
         }
     }
 
@@ -32,8 +34,13 @@ export class ChatToolbar extends CustomElement {
         return html`${until(this.getButtons(), '')}`
     }
 
-    async getButtons () {
+    getButtons () {
         const buttons = [];
+
+        if (this.show_emoji_button) {
+            buttons.push(html`<converse-emoji-dropdown .chatview=${this.chatview}></converse-dropdown>`);
+        }
+
         if (this.show_call_button) {
             buttons.push(html`
                 <button class="toggle-call" @click=${this.toggleCall} title="${i18n_start_call}">
@@ -41,6 +48,27 @@ export class ChatToolbar extends CustomElement {
                 </button>`
             );
         }
+        const message_limit = api.settings.get('message_limit');
+        if (message_limit) {
+            buttons.push(html`<span class="message-limit" title="${i18n_chars_remaining}">${this.message_limit}</span>`);
+        }
+
+        if (this.show_spoiler_button) {
+            buttons.push(this.getSpoilerButton());
+        }
+
+        const http_upload_promise = api.disco.supports(Strophe.NS.HTTPUPLOAD, _converse.domain);
+        buttons.push(html`${until(http_upload_promise.then(() =>
+            html`<button title="${i18n_choose_file}" @click=${this.toggleFileUpload}>
+                    <fa-icon class="fa fa-paperclip"
+                             path-prefix="${api.settings.get('assets_path')}"
+                             color="var(--text-color-lighten-15-percent)"
+                             size="1em"></fa-icon>
+                </button>
+                <input type="file" @change=${this.onFileSelection} class="fileupload" multiple="" style="display:none"/>
+            `),'')}`
+        );
+
         if (this.show_occupants_toggle) {
             buttons.push(html`
                 <button class="toggle_occupants"
@@ -51,46 +79,45 @@ export class ChatToolbar extends CustomElement {
                 </button>`
             );
         }
-        const message_limit = api.settings.get('message_limit');
-        if (message_limit) {
-            buttons.push(html`<span class="message-limit" title="${i18n_chars_remaining}">${this.message_limit}</span>`);
-        }
 
-        if (this.show_spoiler_button) {
-            let i18n_toggle_spoiler;
-            if (this.model.get('composing_spoiler')) {
-                i18n_toggle_spoiler = __("Click to write as a normal (non-spoiler) message");
-            } else {
-                i18n_toggle_spoiler = __("Click to write your message as a spoiler");
-            }
-            buttons.push(html`
-                <button class="toggle-compose-spoiler"
-                        title="${i18n_toggle_spoiler}"
-                        @click=${this.toggleComposeSpoilerMessage}>
-                    <fa-icon class="fa ${this.composing_spoiler ? 'fa-eye-slash' : 'fa-eye'}"
-                             path-prefix="${api.settings.get('assets_path')}"
-                             color="var(--text-color-lighten-15-percent)"
-                             size="1em"></fa-icon>
-                </button>`
-            );
-        }
-
-        if (await api.disco.supports(Strophe.NS.HTTPUPLOAD, _converse.domain)) {
-            buttons.push(html`
-                <button title="${i18n_choose_file}" @click=${this.toggleFileUpload}>
-                    <fa-icon class="fa fa-paperclip"
-                             path-prefix="${api.settings.get('assets_path')}"
-                             color="var(--text-color-lighten-15-percent)"
-                             size="1em"></fa-icon>
-                </button>
-                <input type="file" @change=${this.onFileSelection} class="fileupload" multiple="" style="display:none"/>
-            `);
-        }
         /**
          * *Hook* which allows plugins to add more buttons to a chat's toolbar
          * @event _converse#getToolbarButtons
          */
         return _converse.api.hook('getToolbarButtons', this, buttons);
+    }
+
+    getSpoilerButton () {
+        if (!this.is_groupchat && this.model.presence.resources.length === 0) {
+            return;
+        }
+
+        let i18n_toggle_spoiler;
+        if (this.model.get('composing_spoiler')) {
+            i18n_toggle_spoiler = __("Click to write as a normal (non-spoiler) message");
+        } else {
+            i18n_toggle_spoiler = __("Click to write your message as a spoiler");
+        }
+        const markup = html`
+            <button class="toggle-compose-spoiler"
+                    title="${i18n_toggle_spoiler}"
+                    @click=${this.toggleComposeSpoilerMessage}>
+                <fa-icon class="fa ${this.composing_spoiler ? 'fa-eye-slash' : 'fa-eye'}"
+                         path-prefix="${api.settings.get('assets_path')}"
+                         color="var(--text-color-lighten-15-percent)"
+                         size="1em"></fa-icon>
+            </button>`;
+
+        if (this.is_groupchat) {
+            return markup;
+        } else {
+            const contact_jid = this.model.get('jid');
+            const spoilers_promise = Promise.all(
+                this.model.presence.resources.map(
+                    r => api.disco.supports(Strophe.NS.SPOILER, `${contact_jid}/${r.get('name')}`)
+                )).then(results => results.reduce((acc, val) => (acc && val), true));
+            return html`${until(spoilers_promise.then(() => markup), '')}`;
+        }
     }
 
     toggleFileUpload (ev) {
