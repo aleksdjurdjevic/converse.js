@@ -17,6 +17,7 @@ export class ChatToolbar extends CustomElement {
 
     static get properties () {
         return {
+            chatview: { type: Object }, // Used by getToolbarButtons hooks
             model: { type: Object },
             hidden_occupants: { type: Boolean },
             is_groupchat: { type: Boolean },

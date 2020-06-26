@@ -331,7 +331,7 @@ converse.plugins.add('converse-chatview', {
                     return this;
                 }
                 const options = Object.assign(
-                    { 'model': this.model },
+                    { 'model': this.model, 'chatview': this },
                     this.model.toJSON(),
                     this.getToolbarOptions()
                 );

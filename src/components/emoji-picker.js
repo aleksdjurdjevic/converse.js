@@ -1,10 +1,13 @@
 import DOMNavigator from "../dom-navigator";
 import sizzle from 'sizzle';
+import { BaseDropdown } from "./dropdown.js";
 import { CustomElement } from './element.js';
-import { _converse, converse } from "@converse/headless/converse-core";
+import { __ } from '@converse/headless/i18n';
+import { _converse, api, converse } from "@converse/headless/converse-core";
 import { debounce, find } from "lodash-es";
 import { html } from "lit-element";
 import { tpl_all_emojis, tpl_emoji_picker, tpl_search_results } from "../templates/emoji_picker.js";
+import { until } from 'lit-html/directives/until.js';
 
 const u = converse.env.utils;
 
@@ -343,5 +346,59 @@ export class EmojiPicker extends CustomElement {
 }
 
 
+export class EmojiDropdown extends BaseDropdown {
+
+    static get properties() {
+        return {
+            chatview: { type: Object }
+        };
+    }
+
+    initModel () {
+        if (!this.init_promise) {
+            this.init_promise = (async () => {
+                await api.emojis.initialize()
+                const id = `converse.emoji-${_converse.bare_jid}-${this.chatview.model.get('jid')}`;
+                this.model = new _converse.EmojiPicker({'id': id});
+                this.model.browserStorage = _converse.createStore(id);
+                await new Promise(resolve => this.model.fetch({'success': resolve, 'error': resolve}));
+            })();
+        }
+        return this.init_promise;
+    }
+
+    render() {
+        return html`
+            <div class="dropup">
+                <button class="toggle-compose-spoiler btn btn--transparent"
+                        title="${__('Insert emojis')}"
+                        data-toggle="dropdown"
+                        aria-haspopup="true"
+                        aria-expanded="false">
+                    <fa-icon class="fa fa-smile "
+                            path-prefix="${api.settings.get('assets_path')}"
+                            color="var(--text-color-lighten-15-percent)"
+                            size="1em"></fa-icon>
+                </button>
+                <div class="dropdown-menu">
+                    ${until(this.initModel().then(() => html`
+                        <converse-emoji-picker
+                                .chatview=${this.chatview}
+                                .model=${this.model}
+                                current_category="${this.model.get('current_category') || ''}"
+                                current_skintone="${this.model.get('current_skintone') || ''}"
+                                query="${this.model.get('query') || ''}"
+                        ></converse-emoji-picker>`), '')}
+                </div>
+            </div>`;
+    }
+
+    async showMenu () {
+        await this.init_promise;
+        super.showMenu();
+    }
+}
+
+window.customElements.define('converse-emoji-dropdown', EmojiDropdown);
 window.customElements.define('converse-emoji-picker', EmojiPicker);
 window.customElements.define('converse-emoji-picker-content', EmojiPickerContent);

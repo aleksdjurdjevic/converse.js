@@ -15,7 +15,7 @@
             }
         }
 
-        .emoji-picker.toolbar-menu {
+        converse-emoji-picker {
             width: 100%;
             padding-top: 0;
             padding-bottom: 0;
@@ -154,7 +154,7 @@
     }
 
     .chatroom {
-        .emoji-picker.toolbar-menu {
+        converse-emoji-picker {
             background-color: var(--chatroom-head-bg-color);
             background: white;
             .emoji-skintone-picker {
@@ -186,7 +186,7 @@
                 }
             }
         }
-        .emoji-picker.toolbar-menu {
+        converse-emoji-picker {
             li {
                 &.insert-emoji {
                     height: calc(var(--font-size) * 1.5);
@@ -227,7 +227,7 @@
     .chatbox {
         .toggle-smiley {
         }
-        .emoji-picker.toolbar-menu {
+        converse-emoji-picker {
             .emoji-picker__lists {
                 height: 12em;
             }
@@ -238,7 +238,7 @@
 @include media-breakpoint-up(m) {
     #conversejs {
         .chatbox {
-            .emoji-picker.toolbar-menu {
+            converse-emoji-picker {
                 max-width: 40em;
             }
         }

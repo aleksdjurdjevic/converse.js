@@ -86,32 +86,6 @@ converse.plugins.add('converse-emoji-views', {
                 this.emoji_dropdown.toggle();
             },
 
-            async createEmojiPicker () {
-                await api.emojis.initialize()
-                const id = `converse.emoji-${_converse.bare_jid}-${this.model.get('jid')}`;
-                const emojipicker = new _converse.EmojiPicker({'id': id});
-                emojipicker.browserStorage = _converse.createStore(id);
-                await new Promise(resolve => emojipicker.fetch({'success': resolve, 'error': resolve}));
-                this.emoji_picker_view = new _converse.EmojiPickerView({'model': emojipicker, 'chatview': this});
-                const el = this.el.querySelector('.emoji-picker__container');
-                el.innerHTML = '';
-                el.appendChild(this.emoji_picker_view.el);
-            },
-
-            async createEmojiDropdown () {
-                if (!this.emoji_dropdown) {
-                    await this.createEmojiPicker();
-                    const el = this.el.querySelector('.emoji-picker');
-                    this.emoji_dropdown = new bootstrap.Dropdown(el, true);
-                    this.emoji_dropdown.el = el;
-                }
-            },
-
-            async toggleEmojiMenu (ev) {
-                ev.stopPropagation();
-                await this.createEmojiDropdown();
-                this.emoji_dropdown.toggle();
-            }
         };
         Object.assign(_converse.ChatBoxView.prototype, emoji_aware_chat_view);
 
@@ -145,16 +119,9 @@ converse.plugins.add('converse-emoji-views', {
 
         api.listen.on('chatBoxClosed', view => view.emoji_picker_view && view.emoji_picker_view.remove());
 
-        api.listen.on('getToolbarButtons', (chatbox, buttons) => {
+        api.listen.on('getToolbarButtons', (toolbar_el, buttons) => {
             if (api.settings.get('visible_toolbar_buttons').emoji) {
-                buttons.push(html`
-                    <li class="toggle-toolbar-menu toggle-smiley__container">
-                        <a class="toggle-smiley far fa-smile"
-                        title="${__('Insert emojis')}"
-                        data-toggle="dropdown"
-                        aria-haspopup="true"
-                        aria-expanded="false"></a>
-                    </li>`);
+                buttons.push(html`<converse-emoji-dropdown .chatview=${toolbar_el.chatview}></converse-dropdown>`);
                 return buttons;
             }
         });

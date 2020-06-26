@@ -2,6 +2,7 @@ import { html } from "lit-html";
 
 export default (o) => html`
     <converse-chat-toolbar
+        .chatview=${o.chatview}
         .model=${o.model}
         ?show_call_button="${o.show_call_button}"
         ?show_occupants_toggle="${o.show_occupants_toggle}"
