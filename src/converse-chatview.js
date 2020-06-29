@@ -173,23 +173,17 @@ converse.plugins.add('converse-chatview', {
                 'change input.fileupload': 'onFileSelection',
                 'click .chatbox-navback': 'showControlBox',
                 'click .chatbox-title': 'minimize',
-                'click .new-msgs-indicator': 'viewUnreadMessages',
                 'click .send-button': 'onFormSubmitted',
                 'click .toggle-call': 'toggleCall',
                 'click .toggle-clear': 'clearMessages',
                 'click .toggle-compose-spoiler': 'toggleComposeSpoilerMessage',
                 'click .upload-file': 'toggleFileUpload',
-                'dragover .chat-textarea': 'onDragOver',
-                'drop .chat-textarea': 'onDrop',
-                'input .chat-textarea': 'inputChanged',
-                'keydown .chat-textarea': 'onKeyDown',
-                'keyup .chat-textarea': 'onKeyUp',
-                'paste .chat-textarea': 'onPaste',
             },
 
             async initialize () {
                 this.initDebounced();
-
+                this.listenTo(this.model, 'change:composing_spoiler', this.renderMessageForm);
+                this.listenTo(this.model, 'change:show_new_msgs_indicator', this.renderMessageForm);
                 this.listenTo(this.model, 'change:status', this.onStatusMessageChanged);
                 this.listenTo(this.model, 'destroy', this.remove);
                 this.listenTo(this.model, 'show', this.show);
@@ -243,24 +237,17 @@ converse.plugins.add('converse-chatview', {
             },
 
             async render () {
-                const result = tpl_chatbox(
-                    Object.assign(
-                        this.model.toJSON(), {
-                            'markScrolled': () => this.markScrolled()
-                        }
-                    )
-                );
-                render(result, this.el);
+                const props = Object.assign(this.model.toJSON(), {markScrolled: () => this.markScrolled()});
+                render(tpl_chatbox(props), this.el);
                 this.content = this.el.querySelector('.chat-content');
-
                 this.notifications = this.el.querySelector('.chat-content__notifications');
                 this.msgs_container = this.el.querySelector('.chat-content__messages');
                 this.help_container = this.el.querySelector('.chat-content__help');
-
                 await api.waitUntil('emojisInitialized');
                 this.renderChatContent();
-                this.renderMessageForm();
                 this.renderHeading();
+                this.renderMessageForm();
+                this.renderToolbar();
                 return this;
             },
 
@@ -273,9 +260,9 @@ converse.plugins.add('converse-chatview', {
                         // gets scrolled down. We always want to scroll down
                         // when the user writes a message as opposed to when a
                         // message is received.
-                        this.model.set('scrolled', false);
+                        this.model.set({'scrolled': false, 'show_new_msgs_indicator': false});
                     } else if (this.model.get('scrolled', true)) {
-                        this.showNewMessagesIndicator();
+                        this.model.set('show_new_msgs_indicator', true);
                     }
                 }
             },
@@ -358,19 +345,19 @@ converse.plugins.add('converse-chatview', {
                 const form_container = this.el.querySelector('.message-form-container');
                 render(tpl_chatbox_message_form(
                     Object.assign(this.model.toJSON(), {
-                        '__': __,
-                        'message_limit': api.settings.get('message_limit'),
+                        'dragover': ev => this.onDragOver(ev),
+                        'drop': ev => this.onDrop(ev),
                         'hint_value': this.el.querySelector('.spoiler-hint')?.value,
-                        'label_message': this.model.get('composing_spoiler') ? __('Hidden message') : __('Message'),
-                        'label_spoiler_hint': __('Optional hint'),
+                        'input': ev => this.inputChanged(ev),
+                        'keydown': ev => this.onKeyDown(ev),
+                        'keyup': ev => this.onKeyUp(ev),
                         'message_value': this.el.querySelector('.chat-textarea')?.value,
-                        'show_send_button': api.settings.get('show_send_button'),
-                        'show_toolbar': api.settings.get('show_toolbar'),
-                        'unread_msgs': __('You have unread messages')
+                        'paste': ev => this.onPaste(ev),
+                        'scrollDown': ev => this.scrollDown(ev),
                     })), form_container);
                 this.el.addEventListener('focusin', ev => this.emitFocused(ev));
                 this.el.addEventListener('focusout', ev => this.emitBlurred(ev));
-                this.renderToolbar();
+                this.focus();
             },
 
             showControlBox () {
@@ -565,9 +552,10 @@ converse.plugins.add('converse-chatview', {
                 ev?.preventDefault?.();
                 ev?.stopPropagation?.();
                 if (this.model.get('scrolled')) {
-                    u.safeSave(this.model, {
+                    this.model.save({
                         'scrolled': false,
                         'top_visible_message': null,
+                        'show_new_msgs_indicator': false
                     });
                 }
                 if (this.msgs_container.scrollTo) {
@@ -1012,9 +1000,7 @@ converse.plugins.add('converse-chatview', {
             },
 
             toggleComposeSpoilerMessage () {
-                this.model.set('composing_spoiler', !this.model.get('composing_spoiler'));
-                this.renderMessageForm();
-                this.focus();
+                this.model.save('composing_spoiler', !this.model.get('composing_spoiler'));
             },
 
             onPresenceChanged (item) {
@@ -1133,17 +1119,6 @@ converse.plugins.add('converse-chatview', {
                 }
             },
 
-            showNewMessagesIndicator () {
-                u.showElement(this.el.querySelector('.new-msgs-indicator'));
-            },
-
-            hideNewMessagesIndicator () {
-                const new_msgs_indicator = this.el.querySelector('.new-msgs-indicator');
-                if (new_msgs_indicator !== null) {
-                    new_msgs_indicator.classList.add('hidden');
-                }
-            },
-
             /**
              * Called when the chat content is scrolled up or down.
              * We want to record when the user has scrolled away from
@@ -1155,28 +1130,26 @@ converse.plugins.add('converse-chatview', {
              * @private
              */
             _markScrolled: function () {
-                let scrolled = true;
                 const is_at_bottom =
                     (this.msgs_container.scrollTop + this.msgs_container.clientHeight) >=
                         this.msgs_container.scrollHeight - 62; // sigh...
 
                 if (is_at_bottom) {
-                    scrolled = false;
+                    u.safeSave(this.model, {
+                        'scrolled': false,
+                        'top_visible_message': null,
+                        'show_new_msgs_indicator': false
+                    });
                     this.onScrolledDown();
+                } else {
+                    u.safeSave(this.model, {
+                        'scrolled': true,
+                        'top_visible_message': null
+                    });
                 }
-                u.safeSave(this.model, {
-                    'scrolled': scrolled,
-                    'top_visible_message': null
-                });
-            },
-
-            viewUnreadMessages () {
-                this.model.save({'scrolled': false, 'top_visible_message': null});
-                this.scrollDown();
             },
 
             onScrolledDown () {
-                this.hideNewMessagesIndicator();
                 if (_converse.windowState !== 'hidden') {
                     this.model.clearUnreadMsgCounter();
                 }

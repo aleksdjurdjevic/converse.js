@@ -439,20 +439,13 @@ converse.plugins.add('converse-muc-views', {
                 'click .chatbox-navback': 'showControlBox',
                 'click .chatbox-title': 'minimize',
                 'click .hide-occupants': 'hideOccupants',
-                'click .new-msgs-indicator': 'viewUnreadMessages',
                 // Arrow functions don't work here because you can't bind a different `this` param to them.
                 'click .occupant-nick': function (ev) {this.insertIntoTextArea(ev.target.textContent) },
                 'click .send-button': 'onFormSubmitted',
                 'click .toggle-call': 'toggleCall',
                 'click .toggle-occupants': 'toggleOccupants',
                 'click .upload-file': 'toggleFileUpload',
-                'dragover .chat-textarea': 'onDragOver',
-                'drop .chat-textarea': 'onDrop',
-                'input .chat-textarea': 'inputChanged',
-                'keydown .chat-textarea': 'onKeyDown',
-                'keyup .chat-textarea': 'onKeyUp',
                 'mousedown .dragresize-occupants-left': 'onStartResizeOccupants',
-                'paste .chat-textarea': 'onPaste',
                 'submit .muc-nickname-form': 'submitNickname',
             },
 
@@ -646,6 +639,7 @@ converse.plugins.add('converse-muc-views', {
                 container.innerHTML = tpl_chatroom_bottom_panel({__, can_edit, entered});
                 if (entered && can_edit) {
                     this.renderMessageForm();
+                    this.renderToolbar();
                     this.initMentionAutoComplete();
                 }
             },
