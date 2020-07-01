@@ -631,7 +631,6 @@ converse.plugins.add('converse-muc-views', {
                 render(tpl, this.el.querySelector('.chat-head-chatroom'));
             },
 
-
             renderBottomPanel () {
                 const container = this.el.querySelector('.bottom-panel');
                 const entered = this.model.session.get('connection_status') === converse.ROOMSTATUS.ENTERED;
@@ -639,8 +638,6 @@ converse.plugins.add('converse-muc-views', {
                 container.innerHTML = tpl_chatroom_bottom_panel({__, can_edit, entered});
                 if (entered && can_edit) {
                     this.renderMessageForm();
-                    this.renderToolbar();
-                    this.initMentionAutoComplete();
                 }
             },
 
@@ -762,23 +759,6 @@ converse.plugins.add('converse-muc-views', {
                 return element;
             },
 
-            initMentionAutoComplete () {
-                this.mention_auto_complete = new _converse.AutoComplete(this.el, {
-                    'auto_first': true,
-                    'auto_evaluate': false,
-                    'min_chars': api.settings.get('muc_mention_autocomplete_min_chars'),
-                    'match_current_word': true,
-                    'list': () => this.getAutoCompleteList(),
-                    'filter': api.settings.get('muc_mention_autocomplete_filter') == 'contains' ?
-                        _converse.FILTER_CONTAINS :
-                        _converse.FILTER_STARTSWITH,
-                    'ac_triggers': ["Tab", "@"],
-                    'include_triggers': [],
-                    'item': this.getAutoCompleteListItem
-                });
-                this.mention_auto_complete.on('suggestion-box-selectcomplete', () => (this.auto_completing = false));
-            },
-
             /**
              * Get the nickname value from the form and then join the groupchat with it.
              * @private
@@ -789,18 +769,6 @@ converse.plugins.add('converse-muc-views', {
                 ev.preventDefault();
                 const nick = ev.target.nick.value.trim();
                 nick && this.model.join(nick);
-            },
-
-            onKeyDown (ev) {
-                if (this.mention_auto_complete.onKeyDown(ev)) {
-                    return;
-                }
-                return _converse.ChatBoxView.prototype.onKeyDown.call(this, ev);
-            },
-
-            onKeyUp (ev) {
-                this.mention_auto_complete.evaluate(ev);
-                return _converse.ChatBoxView.prototype.onKeyUp.call(this, ev);
             },
 
             async onMessageRetractButtonClicked (message) {

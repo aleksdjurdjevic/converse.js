@@ -345,15 +345,10 @@ converse.plugins.add('converse-chatview', {
                 const form_container = this.el.querySelector('.message-form-container');
                 render(tpl_chatbox_message_form(
                     Object.assign(this.model.toJSON(), {
-                        'dragover': ev => this.onDragOver(ev),
-                        'drop': ev => this.onDrop(ev),
+                        'chatview': this.chatview,
                         'hint_value': this.el.querySelector('.spoiler-hint')?.value,
-                        'input': ev => this.inputChanged(ev),
                         'keydown': ev => this.onKeyDown(ev),
-                        'keyup': ev => this.onKeyUp(ev),
                         'message_value': this.el.querySelector('.chat-textarea')?.value,
-                        'paste': ev => this.onPaste(ev),
-                        'scrollDown': ev => this.scrollDown(ev),
                     })), form_container);
                 this.el.addEventListener('focusin', ev => this.emitFocused(ev));
                 this.el.addEventListener('focusout', ev => this.emitBlurred(ev));
@@ -381,20 +376,6 @@ converse.plugins.add('converse-chatview', {
 
             onFileSelection (evt) {
                 this.model.sendFiles(evt.target.files);
-            },
-
-            onDragOver (evt) {
-                evt.preventDefault();
-            },
-
-            onDrop (evt) {
-                if (evt.dataTransfer.files.length == 0) {
-                    // There are no files to be dropped, so this isn’t a file
-                    // transfer operation.
-                    return;
-                }
-                evt.preventDefault();
-                this.model.sendFiles(evt.dataTransfer.files);
             },
 
             async addFileUploadButton () {
@@ -762,78 +743,8 @@ converse.plugins.add('converse-chatview', {
                 }
             },
 
-            onPaste (ev) {
-                if (ev.clipboardData.files.length !== 0) {
-                    ev.preventDefault();
-                    // Workaround for quirk in at least Firefox 60.7 ESR:
-                    // It seems that pasted files disappear from the event payload after
-                    // the event has finished, which apparently happens during async
-                    // processing in sendFiles(). So we copy the array here.
-                    this.model.sendFiles(Array.from(ev.clipboardData.files));
-                    return;
-                }
-                this.updateCharCounter(ev.clipboardData.getData('text/plain'));
-            },
-
-            /**
-             * Event handler for when a depressed key goes up
-             * @private
-             * @method _converse.ChatBoxView#onKeyUp
-             */
-            onKeyUp (ev) {
-                this.updateCharCounter(ev.target.value);
-            },
-
-            /**
-             * Event handler for when a key is pressed down in a chat box textarea.
-             * @private
-             * @method _converse.ChatBoxView#onKeyDown
-             * @param { Event } ev
-             */
-            onKeyDown (ev) {
-                if (ev.ctrlKey) {
-                    // When ctrl is pressed, no chars are entered into the textarea.
-                    return;
-                }
-                if (!ev.shiftKey && !ev.altKey && !ev.metaKey) {
-                    if (ev.keyCode === converse.keycodes.FORWARD_SLASH) {
-                        // Forward slash is used to run commands. Nothing to do here.
-                        return;
-                    } else if (ev.keyCode === converse.keycodes.ESCAPE) {
-                        return this.onEscapePressed(ev);
-                    } else if (ev.keyCode === converse.keycodes.ENTER) {
-                        return this.onEnterPressed(ev);
-                    } else if (ev.keyCode === converse.keycodes.UP_ARROW && !ev.target.selectionEnd) {
-                        const textarea = this.el.querySelector('.chat-textarea');
-                        if (!textarea.value || u.hasClass('correcting', textarea)) {
-                            return this.editEarlierMessage();
-                        }
-                    } else if (ev.keyCode === converse.keycodes.DOWN_ARROW &&
-                            ev.target.selectionEnd === ev.target.value.length &&
-                            u.hasClass('correcting', this.el.querySelector('.chat-textarea'))) {
-                        return this.editLaterMessage();
-                    }
-                }
-                if ([converse.keycodes.SHIFT,
-                        converse.keycodes.META,
-                        converse.keycodes.META_RIGHT,
-                        converse.keycodes.ESCAPE,
-                        converse.keycodes.ALT].includes(ev.keyCode)) {
-                    return;
-                }
-                if (this.model.get('chat_state') !== _converse.COMPOSING) {
-                    // Set chat state to composing if keyCode is not a forward-slash
-                    // (which would imply an internal command and not a message).
-                    this.model.setChatState(_converse.COMPOSING);
-                }
-            },
-
             getOwnMessages () {
                 return this.model.messages.filter({'sender': 'me'});
-            },
-
-            onEnterPressed (ev) {
-                return this.onFormSubmitted(ev);
             },
 
             onEscapePressed (ev) {
@@ -924,14 +835,6 @@ converse.plugins.add('converse-chatview', {
                 if (message) {
                     this.insertIntoTextArea(u.prefixMentions(message), true, true);
                     message.save('correcting', true);
-                }
-            },
-
-            inputChanged (ev) {
-                const height = ev.target.scrollHeight + 'px';
-                if (ev.target.style.height != height) {
-                    ev.target.style.height = 'auto';
-                    ev.target.style.height = height;
                 }
             },
 
