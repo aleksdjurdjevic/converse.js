@@ -17,6 +17,11 @@
 
         converse-emoji-dropdown {
             display: inline-block;
+
+            .dropdown-menu {
+                min-width: 20em;
+                padding: 0;
+            }
         }
 
         converse-emoji-picker {
@@ -88,6 +93,9 @@
                     list-style: none;
                     position: relative;
                     &.insert-emoji {
+                        padding: 0 0.2em;
+                        height: calc(var(--font-size) * 1.5);
+                        width: auto;
                         margin: 0;
                         display: block;
                         text-align: center;
@@ -191,12 +199,6 @@
             }
         }
         converse-emoji-picker {
-            li {
-                &.insert-emoji {
-                    height: calc(var(--font-size) * 1.5);
-                    width: calc(var(--font-size) * 1.5);
-                }
-            }
             .emoji-picker {
                 .insert-emoji {
                     a {
