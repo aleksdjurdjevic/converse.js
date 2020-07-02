@@ -353,12 +353,6 @@ function getOMEMOToolbarButton (toolbar_el, buttons) {
     return buttons;
 }
 
-function onOMEMOSupportedDetermined (view) {
-    if (!view.model.get('omemo_supported') && view.model.get('omemo_active')) {
-        view.model.set('omemo_active', false);
-    }
-}
-
 
 converse.plugins.add('converse-omemo', {
 
