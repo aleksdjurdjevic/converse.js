@@ -98,7 +98,7 @@ export class EmojiPickerContent extends CustomElement {
                 return true;
             }
         } else {
-            if (this.current_skintone && _converse.emojis.toned.includes(shortname)) {
+            if (this.current_skintone && converse.emojis.toned.includes(shortname)) {
                 return true;
             }
         }
@@ -185,7 +185,7 @@ export class EmojiPicker extends CustomElement {
             } else if (this.old_query && this.query.includes(this.old_query)) {
                 this.search_results = this.search_results.filter(e => contains(e.sn, this.query));
             } else {
-                this.search_results = _converse.emojis_list.filter(e => contains(e.sn, this.query));
+                this.search_results = converse.emojis.list.filter(e => contains(e.sn, this.query));
             }
             this.old_query = this.query;
         } else if (this.search_results.length) {
@@ -254,7 +254,7 @@ export class EmojiPicker extends CustomElement {
         if (ev.keyCode === converse.keycodes.TAB) {
             if (ev.target.value) {
                 ev.preventDefault();
-                const match = find(_converse.emoji_shortnames, sn => _converse.FILTER_CONTAINS(sn, ev.target.value));
+                const match = find(converse.emojis.shortnames, sn => _converse.FILTER_CONTAINS(sn, ev.target.value));
                 match && this.model.set({'query': match});
             } else if (!this.navigator.enabled) {
                 this.enableArrowNavigation(ev);
@@ -278,7 +278,7 @@ export class EmojiPicker extends CustomElement {
     onEnterPressed (ev) {
         ev.preventDefault();
         ev.stopPropagation();
-        if (_converse.emoji_shortnames.includes(ev.target.value)) {
+        if (converse.emojis.shortnames.includes(ev.target.value)) {
             this.insertIntoTextArea(ev.target.value);
         } else if (this.search_results.length === 1) {
             this.insertIntoTextArea(this.search_results[0].sn);
@@ -295,7 +295,7 @@ export class EmojiPicker extends CustomElement {
     }
 
     getTonedShortname (shortname) {
-        if (_converse.emojis.toned.includes(shortname) && this.current_skintone) {
+        if (converse.emojis.toned.includes(shortname) && this.current_skintone) {
             return `${shortname.slice(0, shortname.length-1)}_${this.current_skintone}:`
         }
         return shortname;
